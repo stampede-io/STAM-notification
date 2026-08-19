@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Booking Confirmed</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px;">
+        <h1 style="color: #2c3e50; margin-bottom: 20px;">Booking Confirmed</h1>
+        <p>Your reservation has been confirmed. Here are your booking details:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr>
+                <td style="padding: 8px; font-weight: bold; color: #555;">Booking Reference</td>
+                <td style="padding: 8px;" th:text="${reservationId}"></td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Show</td>
+                <td style="padding: 8px;" th:text="${showId}"></td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; font-weight: bold; color: #555;">Seats</td>
+                <td style="padding: 8px;" th:text="${seats}"></td>
+            </tr>
+        </table>
+        <p style="color: #777; font-size: 12px; margin-top: 30px;">
+            This is an automated message from STAMPEDE. Please do not reply.
+        </p>
+    </div>
+</body>
+</html>
