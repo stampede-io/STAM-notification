@@ -40,7 +40,7 @@ public class NotificationService {
 
     public void sendConfirmation(UUID eventId, UUID correlationId,
                                  String reservationId, String showId, List<String> seatIds) {
-        String subject = "Booking Confirmed — " + reservationId;
+        String subject = "Booking Confirmed - " + reservationId;
         String recipient = reservationId + "@notifications.stampede.io";
 
         Context ctx = new Context();
@@ -58,7 +58,7 @@ public class NotificationService {
 
     public void sendCancellation(UUID eventId, UUID correlationId,
                                  String reservationId, String showId, List<String> seatIds) {
-        String subject = "Booking Cancelled — " + reservationId;
+        String subject = "Booking Cancelled - " + reservationId;
         String recipient = reservationId + "@notifications.stampede.io";
 
         Context ctx = new Context();
@@ -76,7 +76,7 @@ public class NotificationService {
 
     public void sendExpiry(UUID eventId, UUID correlationId,
                            String reservationId, String showId, List<String> seatIds) {
-        String subject = "Hold Expired — " + reservationId;
+        String subject = "Hold Expired - " + reservationId;
         String recipient = reservationId + "@notifications.stampede.io";
 
         Context ctx = new Context();

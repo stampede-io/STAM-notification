@@ -7,13 +7,10 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.stampedeio.notification.domain.ProcessedEvent;
-import com.stampedeio.notification.repository.ProcessedEventRepository;
+import com.stampedeio.notification.service.IdempotencyService;
 import com.stampedeio.notification.service.NotificationService;
 
 @Component
@@ -21,17 +18,16 @@ public class BookingNotificationConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(BookingNotificationConsumer.class);
 
-    private final ProcessedEventRepository processedEventRepository;
+    private final IdempotencyService idempotencyService;
     private final NotificationService notificationService;
 
-    public BookingNotificationConsumer(ProcessedEventRepository processedEventRepository,
+    public BookingNotificationConsumer(IdempotencyService idempotencyService,
                                        NotificationService notificationService) {
-        this.processedEventRepository = processedEventRepository;
+        this.idempotencyService = idempotencyService;
         this.notificationService = notificationService;
     }
 
     @KafkaListener(topics = "reservations.events", groupId = "notification-service")
-    @Transactional
     public void consume(Map<String, Object> message) {
         String eventType = (String) message.get("eventType");
         UUID eventId = UUID.fromString((String) message.get("eventId"));
@@ -45,10 +41,7 @@ public class BookingNotificationConsumer {
                 return;
             }
 
-            try {
-                processedEventRepository.save(new ProcessedEvent(eventId, eventType));
-                processedEventRepository.flush();
-            } catch (DataIntegrityViolationException e) {
+            if (!idempotencyService.tryMarkProcessed(eventId, eventType)) {
                 log.info("Duplicate event detected, skipping: eventId={} type={}", eventId, eventType);
                 return;
             }

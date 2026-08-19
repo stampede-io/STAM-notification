@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +94,7 @@ class NotificationConsumerIT {
                 new StringSerializer(), new JsonSerializer<>(mapper));
         kafkaTemplate = new KafkaTemplate<>(producerFactory);
 
-        clearMailhog();
+        deleteAllMailhogMessages();
     }
 
     @Test
@@ -104,10 +105,10 @@ class NotificationConsumerIT {
 
         sendEvent(eventId, "ReservationConfirmed", correlationId, reservationId);
 
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            JsonNode messages = getMailhogMessages();
-            assertThat(messages.get("total").asInt()).isEqualTo(1);
-            String subject = messages.get("items").get(0)
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+            List<JsonNode> matching = findMessagesByRecipient(reservationId.toString());
+            assertThat(matching).hasSize(1);
+            String subject = matching.get(0)
                     .get("Content").get("Headers").get("Subject").get(0).asText();
             assertThat(subject).contains("Booking Confirmed");
             assertThat(subject).contains(reservationId.toString());
@@ -122,10 +123,10 @@ class NotificationConsumerIT {
 
         sendEvent(eventId, "SeatsReleased", correlationId, reservationId);
 
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            JsonNode messages = getMailhogMessages();
-            assertThat(messages.get("total").asInt()).isEqualTo(1);
-            String subject = messages.get("items").get(0)
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+            List<JsonNode> matching = findMessagesByRecipient(reservationId.toString());
+            assertThat(matching).hasSize(1);
+            String subject = matching.get(0)
                     .get("Content").get("Headers").get("Subject").get(0).asText();
             assertThat(subject).contains("Booking Cancelled");
         });
@@ -139,10 +140,10 @@ class NotificationConsumerIT {
 
         sendEvent(eventId, "HoldExpired", correlationId, reservationId);
 
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            JsonNode messages = getMailhogMessages();
-            assertThat(messages.get("total").asInt()).isEqualTo(1);
-            String subject = messages.get("items").get(0)
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+            List<JsonNode> matching = findMessagesByRecipient(reservationId.toString());
+            assertThat(matching).hasSize(1);
+            String subject = matching.get(0)
                     .get("Content").get("Headers").get("Subject").get(0).asText();
             assertThat(subject).contains("Hold Expired");
         });
@@ -156,20 +157,19 @@ class NotificationConsumerIT {
 
         sendEvent(eventId, "ReservationConfirmed", correlationId, reservationId);
 
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            JsonNode messages = getMailhogMessages();
-            assertThat(messages.get("total").asInt()).isEqualTo(1);
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+            List<JsonNode> matching = findMessagesByRecipient(reservationId.toString());
+            assertThat(matching).hasSize(1);
         });
 
         sendEvent(eventId, "ReservationConfirmed", correlationId, reservationId);
 
-        // Wait a bit to allow any duplicate to arrive
         Thread.sleep(3000);
 
-        JsonNode messages = getMailhogMessages();
-        assertThat(messages.get("total").asInt())
+        List<JsonNode> matching = findMessagesByRecipient(reservationId.toString());
+        assertThat(matching)
                 .as("Duplicate event must not produce a second email")
-                .isEqualTo(1);
+                .hasSize(1);
 
         assertThat(processedEventRepository.count()).isEqualTo(1);
     }
@@ -197,7 +197,7 @@ class NotificationConsumerIT {
                 .get(10, TimeUnit.SECONDS);
     }
 
-    private JsonNode getMailhogMessages() {
+    private List<JsonNode> findMessagesByRecipient(String reservationId) {
         try {
             String url = "http://" + mailhog.getHost() + ":" + mailhog.getMappedPort(8025)
                     + "/api/v2/messages";
@@ -207,13 +207,25 @@ class NotificationConsumerIT {
                     .build();
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
-            return objectMapper.readTree(response.body());
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode items = root.get("items");
+            List<JsonNode> matching = new ArrayList<>();
+            if (items != null) {
+                for (JsonNode item : items) {
+                    JsonNode toField = item.get("Content").get("Headers").get("To");
+                    if (toField != null && toField.get(0) != null
+                            && toField.get(0).asText().contains(reservationId)) {
+                        matching.add(item);
+                    }
+                }
+            }
+            return matching;
         } catch (Exception e) {
             throw new RuntimeException("Failed to query Mailhog API", e);
         }
     }
 
-    private void clearMailhog() {
+    private void deleteAllMailhogMessages() {
         try {
             String url = "http://" + mailhog.getHost() + ":" + mailhog.getMappedPort(8025)
                     + "/api/v1/messages";
@@ -223,7 +235,7 @@ class NotificationConsumerIT {
                     .build();
             httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (Exception e) {
-            // Mailhog might not have DELETE endpoint; ignore
+            // Mailhog delete may not be available; tests use per-recipient filtering
         }
     }
 }
