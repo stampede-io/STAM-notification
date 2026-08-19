@@ -38,58 +38,24 @@ public class NotificationService {
         this.fromAddress = fromAddress;
     }
 
-    public void sendConfirmation(UUID eventId, UUID correlationId,
-                                 String reservationId, String showId, List<String> seatIds) {
-        String subject = "Booking Confirmed - " + reservationId;
+    public void sendNotification(UUID eventId, UUID correlationId,
+                                 String reservationId, String showId,
+                                 List<String> seatIds, String templateName,
+                                 String subjectPrefix, String eventType) {
+        String subject = subjectPrefix + " - " + reservationId;
         String recipient = reservationId + "@notifications.stampede.io";
 
         Context ctx = new Context();
         ctx.setVariable("reservationId", reservationId);
         ctx.setVariable("showId", showId);
-        ctx.setVariable("seats", String.join(", ", seatIds));
+        ctx.setVariable("seats", seatIds.isEmpty() ? "N/A" : String.join(", ", seatIds));
 
-        String body = templateEngine.process("email/confirmation", ctx);
+        String body = templateEngine.process(templateName, ctx);
         sendEmail(recipient, subject, body);
 
         notificationLogRepository.save(
-                new NotificationLog(eventId, "ReservationConfirmed", recipient, subject, correlationId));
-        log.info("Confirmation email sent for reservation={}", reservationId);
-    }
-
-    public void sendCancellation(UUID eventId, UUID correlationId,
-                                 String reservationId, String showId, List<String> seatIds) {
-        String subject = "Booking Cancelled - " + reservationId;
-        String recipient = reservationId + "@notifications.stampede.io";
-
-        Context ctx = new Context();
-        ctx.setVariable("reservationId", reservationId);
-        ctx.setVariable("showId", showId);
-        ctx.setVariable("seats", String.join(", ", seatIds));
-
-        String body = templateEngine.process("email/cancellation", ctx);
-        sendEmail(recipient, subject, body);
-
-        notificationLogRepository.save(
-                new NotificationLog(eventId, "SeatsReleased", recipient, subject, correlationId));
-        log.info("Cancellation email sent for reservation={}", reservationId);
-    }
-
-    public void sendExpiry(UUID eventId, UUID correlationId,
-                           String reservationId, String showId, List<String> seatIds) {
-        String subject = "Hold Expired - " + reservationId;
-        String recipient = reservationId + "@notifications.stampede.io";
-
-        Context ctx = new Context();
-        ctx.setVariable("reservationId", reservationId);
-        ctx.setVariable("showId", showId);
-        ctx.setVariable("seats", String.join(", ", seatIds));
-
-        String body = templateEngine.process("email/expiry", ctx);
-        sendEmail(recipient, subject, body);
-
-        notificationLogRepository.save(
-                new NotificationLog(eventId, "HoldExpired", recipient, subject, correlationId));
-        log.info("Expiry email sent for reservation={}", reservationId);
+                new NotificationLog(eventId, eventType, recipient, subject, correlationId));
+        log.info("{} email sent for reservation={}", subjectPrefix, reservationId);
     }
 
     private void sendEmail(String to, String subject, String htmlBody) {
@@ -102,7 +68,14 @@ public class NotificationService {
             helper.setText(htmlBody, true);
             mailSender.send(message);
         } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send email to " + to, e);
+            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            throw new EmailSendException("Failed to send email to " + to, e);
+        }
+    }
+
+    public static class EmailSendException extends RuntimeException {
+        public EmailSendException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }
