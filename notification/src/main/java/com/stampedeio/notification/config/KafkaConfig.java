@@ -21,11 +21,26 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import io.micrometer.core.instrument.MeterRegistry;
 
 @EnableKafka
 @Configuration
 public class KafkaConfig {
+
+    // Spring Boot 4.1 auto-configures a Jackson 3 (tools.jackson.databind)
+    // ObjectMapper as the default bean now that both major versions coexist
+    // on the classpath (jackson-datatype-jsr310 pulls in classic Jackson 2
+    // transitively) — it no longer also registers a classic
+    // com.fasterxml.jackson.databind.ObjectMapper bean. BookingNotification-
+    // Consumer needs that classic type explicitly, so it's provided here
+    // rather than relying on auto-configuration to supply it.
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper().registerModule(new JavaTimeModule());
+    }
 
     private static final Logger log = LoggerFactory.getLogger(KafkaConfig.class);
 
