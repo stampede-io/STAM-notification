@@ -20,9 +20,6 @@ class NotificationApplicationTests {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("eureka.client.enabled", () -> "false");
-        registry.add("spring.cloud.config.enabled", () -> "false");
-        registry.add("spring.config.import", () -> "");
     }
 
     @Test
