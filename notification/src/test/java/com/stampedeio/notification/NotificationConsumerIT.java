@@ -66,9 +66,6 @@ class NotificationConsumerIT {
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
         registry.add("spring.mail.host", mailhog::getHost);
         registry.add("spring.mail.port", () -> mailhog.getMappedPort(1025));
-        registry.add("eureka.client.enabled", () -> "false");
-        registry.add("spring.cloud.config.enabled", () -> "false");
-        registry.add("spring.config.import", () -> "");
     }
 
     @Autowired

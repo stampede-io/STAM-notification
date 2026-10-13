@@ -1,0 +1,6 @@
+apiVersion: v2
+name: notification
+description: STAMPEDE notification service — idempotent Kafka consumer, Thymeleaf email templates, SMTP
+type: application
+version: 0.0.1-SNAPSHOT
+appVersion: "0.0.1-SNAPSHOT"

@@ -5,9 +5,15 @@
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <includeMdcKeyName>correlationId</includeMdcKeyName>
             <includeMdcKeyName>service</includeMdcKeyName>
+            <!-- Notification has no HTTP controller at all (CLAUDE.md §13#12),
+                 so userId never applies here. Populated automatically by
+                 micrometer-tracing-bridge-brave's MDC scope decorator, no
+                 manual MDC.put anywhere for traceId/spanId. -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
             <timeZone>UTC</timeZone>
             <fieldNames>
-                <timestamp>@timestamp</timestamp>
+                <timestamp>timestamp</timestamp>
                 <version>[ignore]</version>
             </fieldNames>
         </encoder>
