@@ -38,7 +38,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stampedeio.notification.repository.ProcessedEventRepository;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
@@ -169,6 +172,26 @@ class NotificationConsumerIT {
                 .hasSize(1);
 
         assertThat(processedEventRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void stam452_nonJsonRecord_isSkipped_andTheNextEventStillSendsEmail() throws Exception {
+        // STAM-452: bytes that aren't JSON fail in the deserializer, before
+        // the listener. Without ErrorHandlingDeserializer the container
+        // re-polls that offset forever and every email behind it is stuck.
+        UUID reservationId = UUID.randomUUID();
+        try (KafkaProducer<String, byte[]> raw = new KafkaProducer<>(Map.of(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class))) {
+            raw.send(new ProducerRecord<>("reservations.events", reservationId.toString(),
+                    "not-json-at-all".getBytes(java.nio.charset.StandardCharsets.UTF_8))).get();
+        }
+        // Same key, so this event sits behind the poison on one partition.
+        sendEvent(UUID.randomUUID(), "ReservationConfirmed", UUID.randomUUID(), reservationId);
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(findMessagesByRecipient(reservationId.toString())).hasSize(1));
     }
 
     private void sendEvent(UUID eventId, String eventType, UUID correlationId,
